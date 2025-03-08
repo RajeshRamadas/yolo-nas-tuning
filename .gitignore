@@ -1,0 +1,44 @@
+# Operating System files
+.DS_Store        # macOS
+Thumbs.db        # Windows
+
+# Node.js dependencies
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Java dependency
+*.class
+*.jar
+*.war
+*.ear
+
+# JavaScript build directories
+dist/
+build/
+
+# Log files
+*.log
+
+# IDE or text editor configuration files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Temporary files
+*.swp
+*.swo
+
+# Environment files
+.env
+
+# Package manager lock files
+package-lock.json
+yarn.lock
+
+# Python virtual environments
+venv/
+env/

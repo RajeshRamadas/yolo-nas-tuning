@@ -1,0 +1,74 @@
+{
+  "model_size": {
+    "_type": "choice",
+    "_value": ["yolov8n.pt", "yolov8s.pt", "yolov8m.pt"]
+  },
+  "batch_size": {
+    "_type": "choice",
+    "_value": [8, 16, 32, 64]
+  },
+  "epochs": {
+    "_type": "choice",
+    "_value": [50, 100, 150, 200]
+  },
+  "imgsz": {
+    "_type": "choice",
+    "_value": [416, 512, 640, 768]
+  },
+  "lr0": {
+    "_type": "loguniform",
+    "_value": [0.001, 0.1]
+  },
+  "lrf": {
+    "_type": "loguniform",
+    "_value": [0.001, 0.1]
+  },
+  "momentum": {
+    "_type": "uniform",
+    "_value": [0.8, 0.99]
+  },
+  "weight_decay": {
+    "_type": "loguniform",
+    "_value": [0.00001, 0.001]
+  },
+  "warmup_epochs": {
+    "_type": "choice",
+    "_value": [1.0, 2.0, 3.0, 5.0]
+  },
+  "warmup_momentum": {
+    "_type": "uniform",
+    "_value": [0.6, 0.9]
+  },
+  "warmup_bias_lr": {
+    "_type": "uniform",
+    "_value": [0.05, 0.2]
+  },
+  "patience": {
+    "_type": "choice",
+    "_value": [20, 30, 50]
+  },
+  "augment": {
+    "_type": "choice",
+    "_value": [true, false]
+  },
+  "mosaic": {
+    "_type": "uniform",
+    "_value": [0.0, 1.0]
+  },
+  "mixup": {
+    "_type": "uniform",
+    "_value": [0.0, 0.3]
+  },
+  "scale": {
+    "_type": "uniform",
+    "_value": [0.1, 0.9]
+  },
+  "fliplr": {
+    "_type": "uniform",
+    "_value": [0.0, 0.5]
+  },
+  "translate": {
+    "_type": "uniform",
+    "_value": [0.0, 0.3]
+  }
+}
