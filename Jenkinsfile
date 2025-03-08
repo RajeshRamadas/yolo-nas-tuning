@@ -2,17 +2,43 @@ pipeline {
     agent any
     environment {
         PYTHON_ENV = "yolo_nni_env"
+        AWS_REGION = "us-east-1"
+        S3_BUCKET = "your-dataset-bucket"
+        S3_PREFIX = "dataset/"
+        DATA_DIR = "data"
+        DATA_YAML = "data/dataset.yaml"
+        AWS_CREDENTIALS_ID = "aws-credentials" // Jenkins credentials ID for AWS
     }
     stages {
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/RajeshRamadas/yolo-nas-tuning.git'
+                git 'https://github.com/your-repo/yolo-nas-tuning.git'
             }
         }
         stage('Setup Environment') {
             steps {
                 sh 'python3 -m venv $PYTHON_ENV'
                 sh 'source $PYTHON_ENV/bin/activate && pip install -r requirements.txt'
+            }
+        }
+        stage('Download Dataset from S3') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: "${AWS_CREDENTIALS_ID}",
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh '''
+                        source $PYTHON_ENV/bin/activate
+                        python s3_data_downloader.py \
+                            --s3-bucket ${S3_BUCKET} \
+                            --s3-prefix ${S3_PREFIX} \
+                            --output-dir ${DATA_DIR} \
+                            --data-yaml ${DATA_YAML} \
+                            --region ${AWS_REGION}
+                    '''
+                }
             }
         }
         stage('Run NAS and Hyperparameter Tuning') {
@@ -149,6 +175,24 @@ pipeline {
             // Archive artifacts
             archiveArtifacts artifacts: 'deployment/**', fingerprint: true
             archiveArtifacts artifacts: 'nni_results.json', fingerprint: true
+
+            // Upload best model back to S3 if successful
+            script {
+                if (currentBuild.resultIsBetterOrEqualTo('SUCCESS')) {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: "${AWS_CREDENTIALS_ID}",
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh """
+                            aws s3 cp deployment/best.pt s3://${S3_BUCKET}/models/best_${BUILD_NUMBER}.pt
+                            aws s3 cp deployment/best_parameters.json s3://${S3_BUCKET}/models/best_parameters_${BUILD_NUMBER}.json
+                            echo "Uploaded best model to s3://${S3_BUCKET}/models/best_${BUILD_NUMBER}.pt"
+                        """
+                    }
+                }
+            }
         }
         success {
             echo "Training & Deployment Completed Successfully"

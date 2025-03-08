@@ -1,77 +1,154 @@
-# YOLOv8 Neural Architecture Search (NAS) & Continuous Tuning
+# YOLOv8 Neural Architecture Search and Hyperparameter Tuning with S3 Integration
 
-This repository contains code for automating the tuning and deployment of YOLOv8 object detection models using Jenkins CI/CD pipeline and Microsoft NNI (Neural Network Intelligence).
+This project implements an end-to-end pipeline for YOLOv8 model optimization using Neural Architecture Search (NAS) and hyperparameter tuning with Microsoft NNI. The pipeline now includes S3 integration for seamless download of training data and upload of optimized models.
 
-## Repository Structure
+## Overview
+
+The pipeline performs the following steps:
+1. Download dataset from S3 bucket
+2. Run NNI experiment to find optimal model architecture and hyperparameters
+3. Train YOLOv8 models with different configurations
+4. Track performance metrics and select the best model
+5. Upload the best model back to S3
+
+## Requirements
+
+- Python 3.9+
+- PyTorch 1.7+
+- Ultralytics YOLOv8
+- Microsoft NNI 2.0+
+- AWS CLI and boto3
+- Docker (optional)
+
+## Dataset Structure in S3
+
+The dataset in S3 should be organized following the YOLOv8 format:
 
 ```
-├── train_yolo.py          # YOLOv8 training script with NNI integration
-├── config.yml             # NNI experiment configuration
-├── search_space.json      # Hyperparameter search space for NNI
-├── Dockerfile             # Docker environment for containerized training
-├── Jenkinsfile            # CI/CD pipeline definition
-├── requirements.txt       # Python dependencies
-└── README.md              # This file
+s3://your-bucket/dataset/
+├── dataset.yaml        # YAML file describing the dataset
+├── train/
+│   ├── images/         # Training images
+│   └── labels/         # Training labels
+├── val/
+│   ├── images/         # Validation images
+│   └── labels/         # Validation labels
+└── test/               # Optional
+    ├── images/
+    └── labels/
 ```
 
-## Setup Instructions
-
-### Prerequisites
-
-- Jenkins server with Pipeline, Git, and Docker plugins
-- GPU-enabled server for training
-- Python 3.7+ environment
-- Object detection dataset in YOLOv8 format
-
-### Dataset Preparation
-
-Prepare your dataset in YOLOv8 format with a `dataset.yaml` file:
+The `dataset.yaml` file should contain:
 
 ```yaml
-path: /path/to/dataset
+path: /path/to/dataset  # Will be automatically updated after download
 train: train/images
 val: val/images
-test: test/images
-
-nc: 80  # number of classes
-names: ["person", "bicycle", ...]  # class names
+test: test/images       # Optional
+nc: 3                   # Number of classes
+names: ['class1', 'class2', 'class3']  # Class names
 ```
 
-Place this file in the `data/` directory.
+## Setup and Usage
 
-### Jenkins Pipeline Setup
+### Option 1: Using Docker
 
-1. Install Jenkins and the required plugins
-2. Create a new Pipeline job in Jenkins
-3. Set up repository access in Source Code Management
-4. Configure build triggers (e.g., Poll SCM)
-5. Set Pipeline definition to "Pipeline script from SCM"
-6. Specify the repository URL and branch
-7. Set the script path to "Jenkinsfile"
+1. Build the Docker image:
+   ```bash
+   docker build -t yolov8-nas-tuning .
+   ```
 
-## How It Works
+2. Run the container:
+   ```bash
+   docker run -it --gpus all -p 8080:8080 \
+     -e AWS_ACCESS_KEY_ID=your_access_key \
+     -e AWS_SECRET_ACCESS_KEY=your_secret_key \
+     -e AWS_REGION=us-east-1 \
+     yolov8-nas-tuning ./run_pipeline.sh \
+     --s3-bucket your-bucket \
+     --s3-prefix dataset/
+   ```
 
-1. The pipeline clones the repository
-2. Sets up a Python environment with the required dependencies
-3. Starts an NNI experiment to search for optimal YOLOv8 configurations
-4. Monitors the training progress
-5. Selects the best model based on performance
-6. Deploys the model to the deployment directory
+### Option 2: Local Setup
+
+1. Create a virtual environment and install dependencies:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. Run the pipeline script:
+   ```bash
+   ./run_pipeline.sh --s3-bucket your-bucket --s3-prefix dataset/
+   ```
+
+   Or run each step manually:
+   ```bash
+   # Download dataset
+   python s3_data_downloader.py --s3-bucket your-bucket --s3-prefix dataset/ --output-dir data/
+
+   # Run NNI experiment
+   nnictl create --config config.yml
+   ```
+
+### Option 3: Using Jenkins
+
+1. Configure Jenkins with the AWS credentials
+2. Create a new pipeline job using the provided Jenkinsfile
+3. Configure the environment variables in the pipeline:
+   - `S3_BUCKET`: Your S3 bucket containing the dataset
+   - `S3_PREFIX`: Prefix path to the dataset in your bucket
+   - `AWS_CREDENTIALS_ID`: Jenkins credentials ID for AWS access
+
+## Files Explanation
+
+- `s3_data_downloader.py`: Script to download dataset from S3
+- `train_yolo.py`: Main training script with NNI integration
+- `config.yml`: NNI experiment configuration
+- `search_space.json`: Hyperparameter search space definition
+- `Dockerfile`: Docker configuration for containerized execution
+- `Jenkinsfile`: CI/CD pipeline definition
+- `run_pipeline.sh`: Convenience script to run the entire pipeline
 
 ## Customization
 
-- Modify `search_space.json` to adjust the hyperparameter search space
-- Adjust `config.yml` to change NNI experiment settings
-- Update `train_yolo.py` for custom training logic
-- Edit the `Jenkinsfile` to change the CI/CD pipeline behavior
+### Modifying the Search Space
 
-## Usage
+Edit `search_space.json` to customize the hyperparameters and their ranges:
 
-1. Push changes to the repository to trigger the pipeline automatically
-2. Monitor the training progress in the Jenkins console output
-3. View detailed metrics in the NNI dashboard
-4. Access the best model in the deployment directory after completion
+```json
+{
+  "model_size": {
+    "_type": "choice",
+    "_value": ["yolov8n.pt", "yolov8s.pt", "yolov8m.pt"]
+  },
+  "batch_size": {
+    "_type": "choice",
+    "_value": [8, 16, 32, 64]
+  },
+  // Add or modify hyperparameters as needed
+}
+```
 
-## License
+### Changing NNI Configuration
 
-[MIT License](LICENSE)
+Modify `config.yml` to adjust experiment settings:
+
+```yaml
+maxTrialNumber: 20  # Increase for more thorough search
+tuner:
+  name: TPE  # Try other algorithms like BOHB, Random, etc.
+```
+
+### Advanced S3 Configuration
+
+For complex S3 setups (cross-account access, custom endpoints, etc.), modify the S3 client initialization in `s3_data_downloader.py`.
+
+## Best Practices
+
+1. Start with a smaller dataset for quick iteration
+2. Use smaller models (yolov8n) for initial experiments
+3. Gradually increase the search space as you identify promising regions
+4. Monitor experiments via the NNI web UI (http://localhost:8080)
+5. Consider freezing early layers when fine-tuning
