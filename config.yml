@@ -12,7 +12,7 @@ trialConcurrency: 1
 maxTrialNumber: 20
 
 # Maximum duration of the experiment (5 hours)
-maxExperimentDuration: 5h
+maxExperimentDuration: 15h
 
 # Tuning algorithm configuration
 tuner:
