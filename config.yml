@@ -3,7 +3,7 @@ experimentName: YOLOv8_NAS_Tuning
 searchSpaceFile: search_space.json
 
 # Command to run for each trial
-trialCommand: python train_yolo.py --data_yaml data/dataset.yaml
+trialCommand: python train_yolo.py --data_yaml ${DATA_DIR}/data.yaml
 
 # Number of concurrent trials to run
 trialConcurrency: 1
@@ -11,7 +11,7 @@ trialConcurrency: 1
 # Maximum number of trials to run
 maxTrialNumber: 20
 
-# Maximum duration of the experiment (5 hours)
+# Maximum duration of the experiment
 maxExperimentDuration: 15h
 
 # Tuning algorithm configuration
@@ -26,15 +26,15 @@ trainingService:
   platform: local
   useActiveGpu: true  # Use GPUs that are already active
   maxTrialNumberPerGpu: 1  # Run one trial per GPU
-  gpuIndices: 0  # Use GPU 0 (add more indices separated by comma for multi-GPU)
+  gpuIndices: 0  # Use GPU 0 (add more indices separated by commas for multi-GPU)
 
-# Early stopping configuration (stop trials that are unlikely to be the best)
+# Early stopping configuration
 assessor:
   name: Medianstop
   classArgs:
     optimize_mode: maximize
     start_step: 5
-    
+
 # Log configuration
 logDir: logs
 logLevel: info

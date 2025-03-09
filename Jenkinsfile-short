@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+    environment {
+        PYTHON_ENV = "yolo_nni_env"
+        AWS_REGION = "us-east-1"
+        S3_BUCKET = "yolodataset"
+        DATA_DIR = "data"
+    }
+    stages {
+        stage('Setup') {
+            steps {
+                git 'https://github.com/your-repo/yolo-nas-tuning.git'
+                sh 'python3 -m venv $PYTHON_ENV && source $PYTHON_ENV/bin/activate && pip install -r requirements.txt'
+            }
+        }
+        stage('Download Dataset') {
+            steps {
+                sh 'source $PYTHON_ENV/bin/activate && python s3_data_downloader.py --s3-bucket ${S3_BUCKET} --output-dir ${DATA_DIR} --region ${AWS_REGION}'
+                sh 'unzip -o ${DATA_DIR}/shapes.zip -d ${DATA_DIR} && rm ${DATA_DIR}/shapes.zip'
+            }
+        }
+        stage('Prepare Config') {
+            steps {
+                sh 'sed -i "s|data/dataset.yaml|${DATA_DIR}/data.yaml|g" config.yml'
+            }
+        }
+        stage('Run NAS & Tuning') {
+            steps {
+                script {
+                    env.NNI_EXPERIMENT_ID = sh(script: 'source $PYTHON_ENV/bin/activate && nnictl create --config config.yml | grep -o "experimentId is [a-zA-Z0-9]*" | awk '{print $3}'', returnStdout: true).trim()
+                    echo "Started NNI Experiment: ${env.NNI_EXPERIMENT_ID}"
+                }
+            }
+        }
+        stage('Test Pipeline Execution') {
+            steps {
+                script {
+                    echo "NNI Experiment ID: ${env.NNI_EXPERIMENT_ID}"
+                    sh 'ls -lah ${DATA_DIR} && cat ${DATA_DIR}/data.yaml'
+                    sh 'ls -lah runs/train || echo "No runs detected"'
+                }
+            }
+        }
+    }
+    post {
+        always {
+            sh 'source $PYTHON_ENV/bin/activate && nnictl stop ${env.NNI_EXPERIMENT_ID} || true'
+            echo "Pipeline execution completed."
+        }
+    }
+}
